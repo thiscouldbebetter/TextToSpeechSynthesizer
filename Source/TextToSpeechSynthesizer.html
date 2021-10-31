@@ -1,0 +1,173 @@
+
+<html>
+
+<body onload="TextToSpeechSynthesizer.Instance().initialize();">
+  
+	<h3>Text to Speech Synthesizer</h3>
+
+	<div>
+		<label for="inputThingsToSay">Things to Say:</label>
+	</div>
+	<div>
+		<textarea id="inputThingsToSay" rows="10" cols="50">This is a test!</textarea>
+	</div>
+
+	<div>
+		<label for="selectTimbre">Timbre:</label>
+		<select id="selectTimbre"></select>
+	</div>
+
+	<div>
+		<label for="inputPitch">Pitch:</label>
+		<input id="inputPitch" type="number" value="1"></input>
+	</div>
+
+	<div>
+		<label for="inputSpeed">Speed:</label>
+		<input id="inputSpeed" type="number" value="1"></input>
+	</div>
+
+	<div>
+		<button id="buttonSay" onclick="buttonSay_Clicked()">Say</button>
+	</div>
+
+<!-- end user interface -->
+
+<script type="text/javascript">
+
+// events
+
+function buttonSay_Clicked()
+{
+	var inputThingsToSay = document.getElementById
+	(
+		"inputThingsToSay"
+	);
+	var selectTimbre = document.getElementById("selectTimbre");
+	var inputPitch = document.getElementById("inputPitch");
+	var inputSpeed = document.getElementById("inputSpeed");
+
+	var timbreName = selectTimbre.selectedOptions[0].text;
+	var pitch = parseFloat(inputPitch.value);
+	var speed = parseFloat(inputSpeed.value);
+	var thingsToSay = inputThingsToSay.value;
+
+	var voice = new Voice
+	(
+		"Default", 
+		timbreName, 
+		pitch, 
+		speed
+	);
+	voice.say(thingsToSay);	
+}
+
+// classes
+
+class TextToSpeechSynthesizer
+{
+	constructor()
+	{
+		this.systemSynthesizer = window.speechSynthesis;
+	}
+
+	static Instance()
+	{
+		if (TextToSpeechSynthesizer._instance == null)
+		{
+			TextToSpeechSynthesizer._instance =
+				new TextToSpeechSynthesizer();
+		}
+		return TextToSpeechSynthesizer._instance;
+	}
+
+	initialize()
+	{
+		this.systemSynthesizer.onvoiceschanged =
+			this.initialize_VoicesLoaded.bind(this);
+		this.systemSynthesizer.getVoices();
+	}
+
+	initialize_VoicesLoaded()
+	{
+		var systemVoices = this.systemSynthesizer.getVoices();
+
+		this.systemVoicesByName = new Map
+		(
+			systemVoices.map(x => [x.name, x]) 
+		);
+
+		var d = document;
+		var selectTimbre = d.getElementById("selectTimbre");
+		var hasDefaultVoiceBeenFoundYet = false;
+		for (var i = 0; i < systemVoices.length; i++)
+		{
+			var systemVoice = systemVoices[i];
+			var optionTimbre = d.createElement("option");
+			optionTimbre.text = systemVoice.name;
+			if
+			(
+				hasDefaultVoiceBeenFoundYet == false
+				&& optionTimbre.text.indexOf("English") >= 0
+			)
+			{
+				hasDefaultVoiceBeenFoundYet = true;
+				optionTimbre.selected = true;
+			}
+			selectTimbre.appendChild(optionTimbre);
+		}
+	}
+
+	systemVoiceByName(voiceName)
+	{
+		return this.systemVoicesByName.get(voiceName);
+	}
+}
+
+class Voice
+{
+	constructor(name, timbreName, pitch, speed)
+	{
+		this.name = name;
+		this.timbreName = timbreName;
+		this.pitch = (pitch == null ? 1 : pitch);
+		this.speed = (speed == null ? 1 : speed);
+
+		this.systemUtterance = new SpeechSynthesisUtterance();
+		this.systemUtterance.onend = this.say_Ended.bind(this);
+	}
+
+	// instance methods
+
+	say(thingToSay, callback, contextForCallback)
+	{
+		this.callback = callback;
+		this.contextForCallback = contextForCallback;
+
+		this.isSpeaking = true;
+
+		var utterance = this.systemUtterance;
+		var synthesizer = TextToSpeechSynthesizer.Instance();
+		utterance.voice =
+			synthesizer.systemVoiceByName(this.timbreName);
+		utterance.text = thingToSay;
+		utterance.pitch = this.pitch;
+		utterance.rate = this.speed;
+
+		window.speechSynthesis.speak(utterance);
+	}
+
+	say_Ended()
+	{
+		this.isSpeaking = false;
+		if (this.callback != null)
+		{
+			this.callback.call(this.contextForCallback);
+		}
+	}
+}
+
+</script>
+
+</body>
+</html>
